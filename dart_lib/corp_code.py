@@ -1,4 +1,6 @@
+import gzip
 import io
+import json
 import os
 import sys
 import time
@@ -13,6 +15,11 @@ if sys.platform == "win32":
     sys.stdin.reconfigure(encoding="utf-8", errors="replace")
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
+# 매 요청마다 DART에서 30MB짜리 corpCode.xml을 새로 받는 것은 서버리스 환경(Vercel)에서
+# 콜드 스타트 시간제한을 넘기므로, 미리 정제해 저장소에 포함한 스냅샷을 기본으로 사용한다.
+# 최신 상장/신설 정보가 필요하면 아래 refresh_bundled_corp_list()로 주기적으로 재생성한다.
+_BUNDLED_DATA_PATH = os.path.join(os.path.dirname(__file__), "data", "corp_code.json.gz")
 
 
 def ensure_corp_code_cache(force: bool = False) -> str:
@@ -47,9 +54,7 @@ def ensure_corp_code_cache(force: bool = False) -> str:
     return path
 
 
-def load_corp_list() -> list[dict]:
-    """캐시된 corpCode.xml을 파싱해 회사 목록을 반환한다."""
-    path = ensure_corp_code_cache()
+def _parse_corp_code_xml(path: str) -> list[dict]:
     tree = ET.parse(path)
     root = tree.getroot()
 
@@ -64,6 +69,40 @@ def load_corp_list() -> list[dict]:
             }
         )
     return corp_list
+
+
+def load_corp_list() -> list[dict]:
+    """회사 목록을 반환한다. 저장소에 번들된 스냅샷이 있으면 그것을 우선 사용하고
+    (네트워크 호출 없이 즉시 로드), 없으면 DART에서 corpCode.xml을 받아 파싱한다.
+    """
+    if os.path.exists(_BUNDLED_DATA_PATH):
+        with gzip.open(_BUNDLED_DATA_PATH, "rt", encoding="utf-8") as f:
+            records = json.load(f)
+        return [
+            {"corp_code": r[0], "corp_name": r[1], "stock_code": r[2], "modify_date": r[3]}
+            for r in records
+        ]
+
+    path = ensure_corp_code_cache()
+    return _parse_corp_code_xml(path)
+
+
+def refresh_bundled_corp_list() -> str:
+    """DART에서 최신 corpCode.xml을 받아 번들 스냅샷(dart_lib/data/corp_code.json.gz)을
+    재생성한다. 신규 상장/신설 법인을 반영하려면 주기적으로 실행 후 커밋한다.
+    """
+    path = ensure_corp_code_cache(force=True)
+    corp_list = _parse_corp_code_xml(path)
+
+    records = [
+        [c["corp_code"], c["corp_name"], c["stock_code"], c["modify_date"]] for c in corp_list
+    ]
+    os.makedirs(os.path.dirname(_BUNDLED_DATA_PATH), exist_ok=True)
+    data = json.dumps(records, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+    with gzip.open(_BUNDLED_DATA_PATH, "wb", compresslevel=9) as f:
+        f.write(data)
+
+    return _BUNDLED_DATA_PATH
 
 
 def _normalize(name: str) -> str:
@@ -115,8 +154,12 @@ def resolve_company_interactive(name: str, corp_list: list[dict]) -> dict | None
 
 
 if __name__ == "__main__":
-    corp_list = load_corp_list()
-    print(f"전체 회사 수: {len(corp_list)}")
-    test_name = input("검색할 회사명을 입력하세요 (예: 삼성전자): ").strip()
-    result = resolve_company_interactive(test_name, corp_list)
-    print("선택된 회사:", result)
+    if len(sys.argv) > 1 and sys.argv[1] == "--refresh":
+        path = refresh_bundled_corp_list()
+        print(f"번들 스냅샷 갱신 완료: {path}")
+    else:
+        corp_list = load_corp_list()
+        print(f"전체 회사 수: {len(corp_list)}")
+        test_name = input("검색할 회사명을 입력하세요 (예: 삼성전자): ").strip()
+        result = resolve_company_interactive(test_name, corp_list)
+        print("선택된 회사:", result)
