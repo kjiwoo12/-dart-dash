@@ -110,24 +110,51 @@ def _normalize(name: str) -> str:
 
 
 def search_company(name: str, corp_list: list[dict]) -> list[dict]:
-    """이름으로 회사를 검색한다. 완전일치 우선, 그다음 부분일치. 상장사 우선 정렬."""
+    """이름으로 회사를 검색한다. 완전일치를 앞에 두되, 부분일치도 함께 반환한다
+    (예: "신한"과 완전히 같은 이름의 무관한 소규모 회사가 있어도 "신한지주" 같은
+    부분일치 후보가 숨겨지지 않도록). 각 그룹 내에서는 상장사를 우선 정렬한다.
+    """
     target = _normalize(name)
     if not target:
         return []
 
     exact = [c for c in corp_list if _normalize(c["corp_name"]) == target]
-    if exact:
-        matches = exact
-    else:
-        matches = [c for c in corp_list if target in _normalize(c["corp_name"])]
+    exact_codes = {c["corp_code"] for c in exact}
+    partial = [
+        c
+        for c in corp_list
+        if c["corp_code"] not in exact_codes and target in _normalize(c["corp_name"])
+    ]
 
-    matches.sort(key=lambda c: (c["stock_code"] == "", c["corp_name"]))
-    return matches
+    exact.sort(key=lambda c: (c["stock_code"] == "", c["corp_name"]))
+    # 부분일치는 이름이 짧을수록(검색어와 더 가까울수록) 우선 노출한다.
+    # 그렇지 않으면 "신한제9호기업인수목적" 같은 스팩 회사가 잔뜩 끼어들어
+    # "신한지주" 같은 실제로 찾는 회사가 순위 밖으로 밀려난다.
+    partial.sort(key=lambda c: (c["stock_code"] == "", len(c["corp_name"]), c["corp_name"]))
+
+    return exact + partial
+
+
+def resolve_unique_company(name: str, corp_list: list[dict]) -> dict | None:
+    """이름과 완전히 같은 회사가 정확히 하나뿐이면 그 회사를 바로 반환한다.
+    (완전일치가 0개 또는 여러 개면 None — 모호하므로 후보 목록을 보여줘야 함.
+    부분일치가 섞여도 이 판단에는 영향을 주지 않는다 — "삼성전자"처럼 이름이
+    유일하게 일치하면, 부분일치인 "삼성전자서비스" 등이 있어도 곧장 확정한다.)
+    """
+    target = _normalize(name)
+    if not target:
+        return None
+    exact = [c for c in corp_list if _normalize(c["corp_name"]) == target]
+    return exact[0] if len(exact) == 1 else None
 
 
 def resolve_company_interactive(name: str, corp_list: list[dict]) -> dict | None:
     """이름으로 회사를 검색해 사용자와 상호작용으로 하나를 확정한다."""
     while True:
+        unique = resolve_unique_company(name, corp_list)
+        if unique:
+            return unique
+
         matches = search_company(name, corp_list)
 
         if len(matches) == 1:

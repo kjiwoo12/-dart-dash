@@ -38,6 +38,10 @@ def _resolve_company(corp_list, name_raw, code_raw):
     if not name_raw:
         return None, "회사명을 입력해주세요."
 
+    unique = corp_code.resolve_unique_company(name_raw, corp_list)
+    if unique:
+        return unique, None
+
     matches = corp_code.search_company(name_raw, corp_list)
     if len(matches) == 1:
         return matches[0], None
