@@ -2,7 +2,7 @@
   "functions": {
     "api/index.py": {
       "includeFiles": "dart_lib/**",
-      "maxDuration": 30
+      "maxDuration": 60
     }
   },
   "rewrites": [

@@ -48,7 +48,6 @@ def fetch_financial_statements(
         status = data.get("status")
 
         if status == "000":
-            time.sleep(0.2)  # API 매너 딜레이
             return data.get("list", [])
 
         if status in _NO_DATA_STATUS:
