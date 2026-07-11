@@ -32,7 +32,14 @@ def _fetch_one(company: dict, year: str):
         return name, year, {}, f"{name} {year}년: API 오류 - {exc}"
 
     if not rows:
-        return name, year, {}, f"{name} {year}년: 조회된 재무제표 데이터 없음 (신설법인 등)"
+        return (
+            name,
+            year,
+            {},
+            f"{name} {year}년: 사업보고서 기준 재무제표 데이터 없음 "
+            "(신설법인이거나, 비상장 계열사처럼 사업보고서 대신 감사보고서만 제출하는 회사일 수 있음 "
+            "— 이 도구가 조회하는 API 범위 밖이므로 DART 홈페이지에서 직접 확인 요망)",
+        )
 
     metrics = account_map.extract_all_metrics(rows)
     ratios = account_map.compute_ratios(metrics)
