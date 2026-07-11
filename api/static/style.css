@@ -70,6 +70,23 @@ button:hover {
   margin-top: 1rem;
 }
 
+.result-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.result-header h2 {
+  margin: 0;
+}
+
+.unit-note {
+  color: #57606a;
+  font-size: 0.9rem;
+}
+
 .table-wrap {
   overflow-x: auto;
 }

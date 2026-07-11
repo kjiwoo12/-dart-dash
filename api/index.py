@@ -8,8 +8,26 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from flask import Flask, jsonify, render_template, request, Response
 
 from dart_lib import corp_code
-from dart_lib.excel_writer import ALL_ROW_LABELS, build_workbook, workbook_to_bytes
+from dart_lib.excel_writer import ALL_ROW_LABELS, RATIO_METRICS, build_workbook, workbook_to_bytes
 from dart_lib.pipeline import collect_results, resolve_years
+
+_UNIT_DIVISOR = 1_000_000  # 화면 표시는 백만원 단위 (엑셀 다운로드는 원 단위 그대로 유지)
+
+
+def _to_display_results(results):
+    display = {}
+    for company, by_year in results.items():
+        display[company] = {}
+        for year, metrics in by_year.items():
+            display[company][year] = {
+                label: (
+                    value
+                    if value is None or label in RATIO_METRICS
+                    else round(value / _UNIT_DIVISOR)
+                )
+                for label, value in metrics.items()
+            }
+    return display
 
 app = Flask(__name__)
 
@@ -113,7 +131,7 @@ def compare():
 
     return render_template(
         "index.html",
-        results=results,
+        results=_to_display_results(results),
         companies=company_names,
         years=years,
         warnings=warnings,
