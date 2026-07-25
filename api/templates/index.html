@@ -7,107 +7,120 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-<div class="container">
-  <h1>DART 재무분석기</h1>
-  <p class="subtitle">회사명 3곳을 입력하면 최근 3개년 연결재무제표를 비교합니다.</p>
+<div class="page">
+  <header class="hero">
+    <p class="eyebrow">DART Open API</p>
+    <h1>DART 재무분석기</h1>
+    <p class="subtitle">회사명 3곳을 입력하면 최근 3개년 연결재무제표를 나란히 비교합니다.</p>
+  </header>
 
-  {% if error %}
-  <div class="alert">{{ error }}</div>
-  {% endif %}
+  <main class="card">
+    {% if error %}
+    <div class="alert" role="alert">{{ error }}</div>
+    {% endif %}
 
-  <form method="post" action="/compare" class="compare-form">
-    {% for i in [1, 2, 3] %}
-    <div class="field">
-      <label for="company{{ i }}_name">{{ i }}번째 회사명</label>
-      <input
-        type="text"
-        id="company{{ i }}_name"
-        name="company{{ i }}_name"
-        list="company{{ i }}_list"
-        autocomplete="off"
-        value="{{ form_values.get('company' ~ i ~ '_name', '') }}"
-        required
-      >
-      <datalist id="company{{ i }}_list"></datalist>
-      <input type="hidden" id="company{{ i }}_code" name="company{{ i }}_code" value="{{ form_values.get('company' ~ i ~ '_code', '') }}">
-    </div>
-    {% endfor %}
-
-    <div class="field">
-      <label for="years">비교 연도 (쉼표 구분, 비우면 최근 3개년 자동)</label>
-      <input type="text" id="years" name="years" placeholder="예: 2022,2023,2024" value="{{ form_values.get('years', '') }}">
-    </div>
-
-    <button type="submit">비교하기</button>
-  </form>
-
-  {% if results %}
-  <div class="result-header">
-    <h2>비교 결과</h2>
-    <span class="unit-note">(단위: 백만 원)</span>
-  </div>
-  <div class="table-wrap">
-    <table>
-      <thead>
-        <tr>
-          <th></th>
-          {% for year in years %}
-          <th colspan="{{ companies|length }}">{{ year }}년</th>
-          {% endfor %}
-        </tr>
-        <tr>
-          <th>항목</th>
-          {% for year in years %}
-            {% for company in companies %}
-            <th>{{ company }}</th>
-            {% endfor %}
-          {% endfor %}
-        </tr>
-      </thead>
-      <tbody>
-        {% for label in metric_labels %}
-        <tr>
-          <th>{{ label }}</th>
-          {% for year in years %}
-            {% for company in companies %}
-              {% set v = results.get(company, {}).get(year, {}).get(label) %}
-              <td>
-                {%- if v is none -%}
-                  N/A
-                {%- elif label in ('ROE(%)', '부채비율(%)') -%}
-                  {{ '%.2f'|format(v) }}
-                {%- else -%}
-                  {{ '{:,}'.format(v) }}
-                {%- endif -%}
-              </td>
-            {% endfor %}
-          {% endfor %}
-        </tr>
+    <form method="post" action="/compare" class="compare-form">
+      <div class="company-grid">
+        {% for i in [1, 2, 3] %}
+        <div class="field">
+          <label for="company{{ i }}_name">{{ i }}번째 회사명</label>
+          <input
+            type="text"
+            id="company{{ i }}_name"
+            name="company{{ i }}_name"
+            list="company{{ i }}_list"
+            autocomplete="off"
+            placeholder="예: 삼성전자"
+            value="{{ form_values.get('company' ~ i ~ '_name', '') }}"
+            required
+          >
+          <datalist id="company{{ i }}_list"></datalist>
+          <input type="hidden" id="company{{ i }}_code" name="company{{ i }}_code" value="{{ form_values.get('company' ~ i ~ '_code', '') }}">
+        </div>
         {% endfor %}
-      </tbody>
-    </table>
-  </div>
+      </div>
 
-  {% if warnings %}
-  <div class="warnings">
-    <strong>주의사항 ({{ warnings|length }}건)</strong>
-    <ul>
-      {% for w in warnings %}
-      <li>{{ w }}</li>
-      {% endfor %}
-    </ul>
-  </div>
-  {% endif %}
+      <div class="field field-years">
+        <label for="years">비교 연도 <span class="hint">(쉼표 구분, 비우면 최근 3개년 자동)</span></label>
+        <input type="text" id="years" name="years" placeholder="예: 2022,2023,2024" value="{{ form_values.get('years', '') }}">
+      </div>
 
-  <form method="post" action="/download" class="download-form">
-    {% for i in [1, 2, 3] %}
-    <input type="hidden" name="company{{ i }}_name" value="{{ form_values.get('company' ~ i ~ '_name', '') }}">
-    <input type="hidden" name="company{{ i }}_code" value="{{ form_values.get('company' ~ i ~ '_code', '') }}">
-    {% endfor %}
-    <input type="hidden" name="years" value="{{ form_values.get('years', '') }}">
-    <button type="submit">엑셀 다운로드</button>
-  </form>
-  {% endif %}
+      <button type="submit" class="btn btn-primary">비교하기</button>
+    </form>
+
+    {% if results %}
+    <section class="results">
+      <div class="result-header">
+        <h2>비교 결과</h2>
+        <span class="unit-note">단위: 백만 원</span>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="col-label"></th>
+              {% for year in years %}
+              <th colspan="{{ companies|length }}" class="col-year">{{ year }}년</th>
+              {% endfor %}
+            </tr>
+            <tr>
+              <th class="col-label">항목</th>
+              {% for year in years %}
+                {% for company in companies %}
+                <th>{{ company }}</th>
+                {% endfor %}
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for label in metric_labels %}
+            <tr>
+              <th class="col-label">{{ label }}</th>
+              {% for year in years %}
+                {% for company in companies %}
+                  {% set v = results.get(company, {}).get(year, {}).get(label) %}
+                  <td>
+                    {%- if v is none -%}
+                      <span class="na">N/A</span>
+                    {%- elif label in ('ROE(%)', '부채비율(%)') -%}
+                      {{ '%.2f'|format(v) }}
+                    {%- else -%}
+                      {{ '{:,}'.format(v) }}
+                    {%- endif -%}
+                  </td>
+                {% endfor %}
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if warnings %}
+      <div class="warnings">
+        <strong>주의사항 ({{ warnings|length }}건)</strong>
+        <ul>
+          {% for w in warnings %}
+          <li>{{ w }}</li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
+      <form method="post" action="/download" class="download-form">
+        {% for i in [1, 2, 3] %}
+        <input type="hidden" name="company{{ i }}_name" value="{{ form_values.get('company' ~ i ~ '_name', '') }}">
+        <input type="hidden" name="company{{ i }}_code" value="{{ form_values.get('company' ~ i ~ '_code', '') }}">
+        {% endfor %}
+        <input type="hidden" name="years" value="{{ form_values.get('years', '') }}">
+        <button type="submit" class="btn btn-secondary">엑셀 다운로드</button>
+      </form>
+    </section>
+    {% endif %}
+  </main>
+
+  <footer class="footnote">DART(전자공시시스템) Open API 기반 · 연결재무제표 · 사업보고서 기준</footer>
 </div>
 
 <script>
