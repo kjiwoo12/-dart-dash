@@ -1,5 +1,7 @@
 # DART 재무분석기
 
+**🔗 라이브 데모: [dart-dash-sdlc.vercel.app](https://dart-dash-sdlc.vercel.app/)** — 설치 없이 바로 회사명 3곳을 입력해 비교해볼 수 있습니다.
+
 DART(전자공시시스템) Open API를 이용해 회사명으로 검색한 3개 회사의 연결재무제표를 최근 3개년 기준으로 비교하고, 결과를 엑셀 파일로 저장하는 도구입니다. CLI(`main.py`)와 웹 UI(`api/index.py`, Vercel 배포용) 두 가지 방식으로 사용할 수 있으며 핵심 로직(`dart_lib/`)을 공유합니다.
 
 ## 설치
